@@ -59,7 +59,7 @@ void imprimeTemperaturaInterna(float temperaturaInterna)
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.setTextColor(SSD1306_WHITE);
-  display.print("Temp. Interna");
+  display.print("Temp. Int");
   display.print(": ");
   display.print(temperaturaInterna);
   display.print(" C");
@@ -89,7 +89,7 @@ void imprimeTemperaturaAmbiente(float temperaturaAmbiente)
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 30); // Terceira linha
-  display.print("Temp. Ambiente");
+  display.print("Temp. Ext");
   display.print(": ");
   display.print(temperaturaAmbiente);
   display.print(" C");
@@ -240,5 +240,9 @@ void loop() {
   leituraTemperatura();
   humidadeDht();
   temperaturaDht();
-  delay(4000);
+  delay(10000);
+
+  display.clearDisplay();
+  display.display();
+  delay(5000);
 }
