@@ -5,6 +5,8 @@
 #include <Adafruit_SSD1306.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <WiFi.h>
+#include <AdafruitIO_WiFi.h>
 
 #define DHTPIN 4
 #define DHTTYPE    DHT11
@@ -27,6 +29,18 @@ byte c;
 float lastTemp = 0.0;
 float temp = 0.0;
 
+const char* ssid = "TP-Link_54F7";
+const char* password = "08350954";
+
+// configuração mqtt
+#define IO_USERNAME  "lf_felipefreitas1989"
+#define IO_KEY       "aio_ZZTf20Av0C2ep9JFoMsJK13Y6wE2"
+AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, ssid, password);
+AdafruitIO_Feed *feedTemperaturaInterna = io.feed("TemperaturaInterna");
+AdafruitIO_Feed *feedTemperaturaAgua = io.feed("TemperaturaAgua");
+AdafruitIO_Feed *feedTemperaturaAmbiente = io.feed("TemperaturaAmbiente");
+AdafruitIO_Feed *feedHumidadeAmbiente = io.feed("HumidadeAmbiente");
+
 void iniciaDisplay()
 {
   Wire.begin(PINO_SDA, PINO_SCL);
@@ -45,7 +59,7 @@ void imprimeTemperaturaInterna(float temperaturaInterna)
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.setTextColor(SSD1306_WHITE);
-  display.print("TempInterna");
+  display.print("Temp. Interna");
   display.print(": ");
   display.print(temperaturaInterna);
   display.print(" C");
@@ -56,11 +70,11 @@ void imprimeTemperaturaInterna(float temperaturaInterna)
 
 void imprimeTemperaturaAgua(float temperataruaAgua)
 {
-  display.fillRect(0, 10, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a segunda linha
+  display.fillRect(0, 15, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a segunda linha
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 10); // Segunda linha
-  display.print("TempAgua");
+  display.setCursor(0, 15); // Segunda linha
+  display.print("Temp. Agua");
   display.print(": ");
   display.print(temperataruaAgua);
   display.print(" C");
@@ -71,12 +85,11 @@ void imprimeTemperaturaAgua(float temperataruaAgua)
 
 void imprimeTemperaturaAmbiente(float temperaturaAmbiente)
 {
-  display.fillRect(0, 20, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a terceira linha
+  display.fillRect(0, 30, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a terceira linha
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 20); // Terceira linha
-  display.print("TempAmb");
-  display.print(1);
+  display.setCursor(0, 30); // Terceira linha
+  display.print("Temp. Ambiente");
   display.print(": ");
   display.print(temperaturaAmbiente);
   display.print(" C");
@@ -87,18 +100,47 @@ void imprimeTemperaturaAmbiente(float temperaturaAmbiente)
 
 void imprimeHumidadeAmbiente(float humidade)
 {
-  display.fillRect(0, 30, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a terceira linha
+  display.fillRect(0, 45, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a terceira linha
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 30); // quarta linha
+  display.setCursor(0, 45); // quarta linha
   display.print("Humidade");
-  display.print(1);
   display.print(": ");
   display.print(humidade);
   display.print(" %");
   display.display();
 
   Serial.println("imprimeHumidadeAmbiente");
+}
+
+void iniciaWifi()
+{
+  WiFi.begin(ssid, password);
+  // Aguarde conexão
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Conectando ao Wi-Fi...");
+  }
+
+  Serial.println("Conectado ao Wi-Fi!");
+  Serial.print("Endereço IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void conectaBroker(){
+  //mensagem inicial
+  Serial.print("Conectando ao Adafruit IO");
+  // chama função de conexão io.adafruit.com
+  io.connect();
+  // Aguarda conexação ser estabelecida
+  while(io.status() < AIO_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+
+  // Conectado
+  Serial.println();
+  Serial.println(io.statusText());
 }
 
 void iniciatDht()
@@ -115,9 +157,11 @@ void temperaturaDht()
   dht.temperature().getEvent(&event);
   if (isnan(event.temperature)) {
     imprimeTemperaturaAmbiente(0);
+    feedTemperaturaAmbiente -> save(0);
   }
   else {
     imprimeTemperaturaAmbiente(event.temperature);
+    feedTemperaturaAmbiente -> save(event.temperature);
   }
 
   Serial.println("temperaturaDht");
@@ -128,9 +172,11 @@ void humidadeDht()
   dht.humidity().getEvent(&event);
   if (isnan(event.relative_humidity)) {
     imprimeHumidadeAmbiente(0);
+    feedHumidadeAmbiente -> save(0);
   }
   else {
     imprimeHumidadeAmbiente(event.relative_humidity);
+    feedHumidadeAmbiente -> save(event.relative_humidity);
   }
 
   Serial.println("humidadeDht");
@@ -160,10 +206,12 @@ void leituraTemperatura()
         if(i == 0)
         {
           imprimeTemperaturaInterna(temp);
+          feedTemperaturaInterna -> save(temp);
         }
         else if(i == 1)
         {
           imprimeTemperaturaAgua(temp);
+          feedTemperaturaAgua -> save(temp);
         }
     }
   }
@@ -175,10 +223,20 @@ void setup() {
   iniciaTemperatura();
   iniciaDisplay();
   iniciatDht();
+  iniciaWifi();
+  conectaBroker();
 }
 
 void loop() {
   Serial.println("Iniciando LOOP...");
+  // processa as mensagens e mantêm a conexão ativa
+  byte state = io.run();
+
+  //verifica se está conectado
+  if(state == AIO_NET_DISCONNECTED | state == AIO_DISCONNECTED){
+    conectaBroker(); //função para conectar ao broker
+  }
+
   leituraTemperatura();
   humidadeDht();
   temperaturaDht();
