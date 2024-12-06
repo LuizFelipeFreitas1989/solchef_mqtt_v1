@@ -7,6 +7,7 @@
 #include <DallasTemperature.h>
 #include <WiFi.h>
 #include <AdafruitIO_WiFi.h>
+#include <string>
 
 #define DHTPIN 4
 #define DHTTYPE    DHT11
@@ -29,8 +30,8 @@ byte c;
 float lastTemp = 0.0;
 float temp = 0.0;
 
-const char* ssid = "TP-Link_54F7";
-const char* password = "08350954";
+const char* ssid = "rede";
+const char* password = "12345678";
 
 // configuração mqtt
 #define IO_USERNAME  "lf_felipefreitas1989"
@@ -50,7 +51,19 @@ void iniciaDisplay()
   display.display();
   delay(2000);
   display.clearDisplay();
-  Serial.print("Display inicializado...");
+}
+
+void displayDebug(std::string mensagem)
+{
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 0);
+  display.println(mensagem.c_str());
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+  display.display();
 }
 
 void imprimeTemperaturaInterna(float temperaturaInterna)
@@ -98,15 +111,15 @@ void imprimeTemperaturaAmbiente(float temperaturaAmbiente)
   Serial.println("imprimeTemperaturaAmbiente");
 }
 
-void imprimeHumidadeAmbiente(float humidade)
+void imprimeUmidadeAmbiente(float umidade)
 {
   display.fillRect(0, 45, SCREEN_WIDTH, 10, SSD1306_BLACK); // Limpa a terceira linha
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 45); // quarta linha
-  display.print("Humidade");
+  display.print("Umidade");
   display.print(": ");
-  display.print(humidade);
+  display.print(umidade);
   display.print(" %");
   display.display();
 
@@ -119,22 +132,22 @@ void iniciaWifi()
   // Aguarde conexão
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
-    Serial.println("Conectando ao Wi-Fi...");
+    displayDebug("Conectando ao Wi-Fi...");
   }
 
-  Serial.println("Conectado ao Wi-Fi!");
-  Serial.print("Endereço IP: ");
-  Serial.println(WiFi.localIP());
+  displayDebug("Conectado ao Wi-Fi!");
+  displayDebug("Endereço IP: ");
+  displayDebug(WiFi.localIP().toString().c_str());
 }
 
 void conectaBroker(){
   //mensagem inicial
-  Serial.print("Conectando ao Adafruit IO");
+  displayDebug("Conectando ao Adafruit IO");
   // chama função de conexão io.adafruit.com
   io.connect();
   // Aguarda conexação ser estabelecida
   while(io.status() < AIO_CONNECTED) {
-    Serial.print(".");
+    displayDebug(".");
     delay(500);
   }
 
@@ -148,8 +161,6 @@ void iniciatDht()
   dht.begin();
   dht.temperature().getSensor(&sensor);
   dht.humidity().getSensor(&sensor);
-
-  Serial.println("inicio DHT");
 }
 
 void temperaturaDht()
@@ -163,31 +174,26 @@ void temperaturaDht()
     imprimeTemperaturaAmbiente(event.temperature);
     feedTemperaturaAmbiente -> save(event.temperature);
   }
-
-  Serial.println("temperaturaDht");
 }
 
-void humidadeDht()
+void umidadeDht()
 {
   dht.humidity().getEvent(&event);
   if (isnan(event.relative_humidity)) {
-    imprimeHumidadeAmbiente(0);
+    imprimeUmidadeAmbiente(0);
     feedHumidadeAmbiente -> save(0);
   }
   else {
-    imprimeHumidadeAmbiente(event.relative_humidity);
+    imprimeUmidadeAmbiente(event.relative_humidity);
     feedHumidadeAmbiente -> save(event.relative_humidity);
   }
-
-  Serial.println("humidadeDht");
 }
 
 void iniciaTemperatura()
 {
   sensors.begin();
   c = sensors.getDeviceCount();
-  Serial.print("Sensores encontrados: ");
-  Serial.println(c);
+  displayDebug("Sensores encontrados: " + c);
 }
 
 void leituraTemperatura()
@@ -219,16 +225,23 @@ void leituraTemperatura()
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Iniciando SETUP...");
+  
   iniciaTemperatura();
   iniciaDisplay();
   iniciatDht();
+  displayDebug("enter sensors...");
+  
+  displayDebug("start wifi...");
   iniciaWifi();
+
+  displayDebug("connect broker...");
   conectaBroker();
+
 }
 
 void loop() {
-  Serial.println("Iniciando LOOP...");
+  displayDebug("loop...");
+
   // processa as mensagens e mantêm a conexão ativa
   byte state = io.run();
 
@@ -238,11 +251,14 @@ void loop() {
   }
 
   leituraTemperatura();
-  humidadeDht();
+  umidadeDht();
   temperaturaDht();
-  delay(10000);
+  delay(60000 * 5); // 5 minutos
 
-  display.clearDisplay();
-  display.display();
-  delay(5000);
+  // Configurar o tempo de deep sleep (30 minutos em microssegundos)
+  esp_sleep_enable_timer_wakeup(20 * 60 * 1000000ULL); // 20 minutos
+  displayDebug("Deep sleep...");
+  
+  // Entrar no modo de deep sleep
+  esp_deep_sleep_start();
 }
