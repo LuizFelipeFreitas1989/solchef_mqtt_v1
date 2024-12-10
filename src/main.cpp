@@ -7,7 +7,6 @@
 #include <DallasTemperature.h>
 #include <WiFi.h>
 #include <AdafruitIO_WiFi.h>
-#include <string>
 
 #define DHTPIN 4
 #define DHTTYPE    DHT11
@@ -30,7 +29,7 @@ byte c;
 float lastTemp = 0.0;
 float temp = 0.0;
 
-const char* ssid = "rede";
+const char* ssid = "redeIOT";
 const char* password = "12345678";
 
 // configuração mqtt
@@ -49,19 +48,25 @@ void iniciaDisplay()
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.display();
-  delay(2000);
+  delay(1000);
   display.clearDisplay();
+  display.display();
+  Serial.println("iniciaDisplay");
 }
 
-void displayDebug(std::string mensagem)
-{
+/*
+void desligarDisplay() {
+  display.ssd1306_command(SSD1306_DISPLAYOFF);
+}*/
+
+void imprimirNoDisplay(const String& message) {
   display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 0);
-  display.println(mensagem.c_str());
-  display.display();
-  delay(2000);
+  display.setTextSize(1);      // Tamanho do texto
+  display.setTextColor(SSD1306_WHITE); // Cor do texto
+  display.setCursor(0, 0);     // Posição do cursor
+  display.print(message);      // Imprime a mensagem no display
+  display.display();           // Atualiza o display com o conteúdo
+  delay(3000);
   display.clearDisplay();
   display.display();
 }
@@ -131,23 +136,26 @@ void iniciaWifi()
   WiFi.begin(ssid, password);
   // Aguarde conexão
   while (WiFi.status() != WL_CONNECTED) {
+    imprimirNoDisplay("Wifi conectando...");
     delay(1000);
-    displayDebug("Conectando ao Wi-Fi...");
+    //displayDebug("Conectando ao Wi-Fi...");
   }
 
-  displayDebug("Conectado ao Wi-Fi!");
-  displayDebug("Endereço IP: ");
-  displayDebug(WiFi.localIP().toString().c_str());
+  //displayDebug("Conectado ao Wi-Fi!");
+  //displayDebug("Endereço IP: ");
+  imprimirNoDisplay("Wifi conectado");
+  Serial.println(WiFi.localIP());
 }
 
-void conectaBroker(){
+void conectaBroker()
+{
   //mensagem inicial
-  displayDebug("Conectando ao Adafruit IO");
+  //displayDebug("Conectando ao Adafruit IO");
   // chama função de conexão io.adafruit.com
   io.connect();
   // Aguarda conexação ser estabelecida
   while(io.status() < AIO_CONNECTED) {
-    displayDebug(".");
+    //displayDebug(".");
     delay(500);
   }
 
@@ -161,6 +169,7 @@ void iniciatDht()
   dht.begin();
   dht.temperature().getSensor(&sensor);
   dht.humidity().getSensor(&sensor);
+  Serial.println("iniciaDHT");
 }
 
 void temperaturaDht()
@@ -193,7 +202,7 @@ void iniciaTemperatura()
 {
   sensors.begin();
   c = sensors.getDeviceCount();
-  displayDebug("Sensores encontrados: " + c);
+  //displayDebug("Sensores encontrados: " + c);
 }
 
 void leituraTemperatura()
@@ -223,26 +232,19 @@ void leituraTemperatura()
   }
 }
 
-void setup() {
+void setup() 
+{
   Serial.begin(115200);
   
   iniciaTemperatura();
   iniciaDisplay();
   iniciatDht();
-  displayDebug("enter sensors...");
-  
-  displayDebug("start wifi...");
   iniciaWifi();
-
-  displayDebug("connect broker...");
   conectaBroker();
-
 }
 
-void loop() {
-  displayDebug("loop...");
-
-  // processa as mensagens e mantêm a conexão ativa
+void loop() 
+{
   byte state = io.run();
 
   //verifica se está conectado
@@ -255,10 +257,10 @@ void loop() {
   temperaturaDht();
   delay(60000 * 5); // 5 minutos
 
-  // Configurar o tempo de deep sleep (30 minutos em microssegundos)
-  esp_sleep_enable_timer_wakeup(20 * 60 * 1000000ULL); // 20 minutos
-  displayDebug("Deep sleep...");
-  
+  // Configurar o tempo de deep sleep (15 minutos em microssegundos)
+  esp_sleep_enable_timer_wakeup(15 * 60 * 1000000ULL); // 15 minutos
+  imprimirNoDisplay("deep sleep...");
+  //desligarDisplay();
   // Entrar no modo de deep sleep
   esp_deep_sleep_start();
 }
