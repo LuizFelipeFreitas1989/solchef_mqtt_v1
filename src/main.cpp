@@ -54,11 +54,6 @@ void iniciaDisplay()
   Serial.println("iniciaDisplay");
 }
 
-/*
-void desligarDisplay() {
-  display.ssd1306_command(SSD1306_DISPLAYOFF);
-}*/
-
 void imprimirNoDisplay(const String& message) {
   display.clearDisplay();
   display.setTextSize(1);      // Tamanho do texto
@@ -128,7 +123,7 @@ void imprimeUmidadeAmbiente(float umidade)
   display.print(" %");
   display.display();
 
-  Serial.println("imprimeHumidadeAmbiente");
+  Serial.println("imprimeUmidadeAmbiente");
 }
 
 void iniciaWifi()
@@ -235,7 +230,6 @@ void leituraTemperatura()
 void setup() 
 {
   Serial.begin(115200);
-  
   iniciaTemperatura();
   iniciaDisplay();
   iniciatDht();
@@ -255,12 +249,9 @@ void loop()
   leituraTemperatura();
   umidadeDht();
   temperaturaDht();
-  delay(60000 * 5); // 5 minutos
+  delay(10000); // 10 segundos
 
-  // Configurar o tempo de deep sleep (15 minutos em microssegundos)
-  esp_sleep_enable_timer_wakeup(15 * 60 * 1000000ULL); // 15 minutos
-  imprimirNoDisplay("deep sleep...");
-  //desligarDisplay();
-  // Entrar no modo de deep sleep
-  esp_deep_sleep_start();
+  Serial.println("deep sleep...");
+
+  delay(60000 * 15); // 15 minutos
 }
